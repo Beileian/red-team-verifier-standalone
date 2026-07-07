@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "principle": "每次发现新的幻觉/作弊模式，自动追加。验证器加载时合并静态+动态规则。",
+  "rules": [
+    {
+      "id": "D001", "pattern": "利润虚高", "category": "FACT", "severity": "high",
+      "check": "重仓股利润是否含非经常性收益(>20%)、并购并表一次性增益、或增利不增收",
+      "source": "2026-07-02 游戏ETF — 三七增利不增收/世纪华通并购/完美23%非经常性"
+    },
+    {
+      "id": "D002", "pattern": "PE分位误导", "category": "FACT", "severity": "high",
+      "check": "低PE分位时检查：盈利是否虚高？扣非PE是否同样低？",
+      "source": "2026-07-02 游戏ETF — PE 1.61%分位但利润质量存疑"
+    },
+    {
+      "id": "D003", "pattern": "催化剂提前定价", "category": "REASONING", "severity": "medium",
+      "check": "已知催化剂是否在公告前已被炒作？检查公告前5日涨跌幅",
+      "source": "2026-07-02 游戏ETF — ChinaJoy 6/25提前炒作"
+    },
+    {
+      "id": "D004", "pattern": "ETF纯度污染", "category": "FACT", "severity": "medium",
+      "check": "前10大权重中如有业务不相关的公司(>5%权重)，标记纯度污染",
+      "source": "2026-07-02 游戏ETF — 光线传媒91%影视收入"
+    },
+    {
+      "id": "D005", "pattern": "跨上下文数字串扰", "category": "FACT", "severity": "critical",
+      "check": "不同标的数字是否错误归属？交叉验证价格/PE/涨跌幅",
+      "source": "历史红蓝对抗"
+    },
+    {
+      "id": "D006", "pattern": "静态评分作弊", "category": "VERIFICATION", "severity": "high",
+      "check": "同维度连续3次<4星 → 模型已绕过该维度 → 需交互式验证",
+      "source": "The Verification Horizon — 静态裁判→长度hacking"
+    },
+    {
+      "id": "D007", "pattern": "奖励错位", "category": "VERIFICATION", "severity": "critical",
+      "check": "回测分数↑但实盘PnL持续为负 → 验证信号失效",
+      "source": "The Verification Horizon — BTC 4周亏损但回测OK"
+    }
+  ]
+}
