@@ -1,0 +1,17 @@
+{
+  "upstream": {
+    "repo": "https://github.com/Agile-V/agile_v_skills",
+    "path": "red-team-verifier/",
+    "version": "1.4",
+    "license": "CC-BY-SA-4.0",
+    "author": "agile-v.org",
+    "adapted_from": "Get Shit Done (GSD) — MIT License, Copyright (c) 2025 Lex Christopherson",
+    "fetched": "2026-06-28",
+    "standard": "Agile V"
+  },
+  "local": {
+    "description": "Adapted from code verification agent to general output verification — applies hallucination hunting checklist + FT-CODE classification + independent verification principle to any analysis output.",
+    "trigger": "output-integrity-gate",
+    "integrations": ["output-integrity-gate", "serenity-router"]
+  }
+}
