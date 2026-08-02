@@ -1,7 +1,7 @@
 ---
 name: red-team-verifier-local
 description: 隐序定制层 — 将 Agile-V 的代码验证代理适配为通用输出验证。幻觉猎杀清单 + FT-CODE 分类 + 分级触发 (P0阻塞/P1异步/P2跳过)，与 output-integrity-gate v1.3.0 联动。
-version: "1.1.0"
+version: "1.2.0"
 ---
 
 # Red Team Verifier — 隐序适配层
@@ -119,3 +119,76 @@ red-team-verifier v1.1.0       = 独立审查（子代理独立验证，7项 FT-
 | 2026-06-28 | 农行持有成本4.26→6.26 | ✅ 第3项 | ✅ 第2条检查 | FT-SOURCE |
 | 2026-06-27 | 中国长城股价30天前 | ✅ 第2项 | ✅ 第5条检查 | FT-DATA |
 | 2026-06-27 | 营收102→158亿 | ✅ 第2项 | ✅ 第6条检查 | FT-DATA + FT-CONTR |
+
+
+---
+
+## 🆕 执行层闸门（v1.2.0 · 2026-08-02 BTC 治理缺口注入）
+
+> 来源：BTC 虚拟量化系统 4连亏期间越闸 BUY 事故——报告层纪律「4连亏下不追加」
+> 连续 10 天标注 P0 但从未被执行，因为纪律只写在 LLM 报告里。
+
+**核心教训：报告层建议 ≠ 执行层闸门。**
+
+任何「X 情况下禁止 Y 操作」的纪律，必须写成执行引擎里的硬条件
+（if 判断/降权逻辑），不能只写在 cron prompt 或 LLM 报告里。
+LLM 建议可被忽略，脚本条件不会。
+
+### 分级触发的执行层实现
+
+本 skill 的 P0 阻塞机制（「主进程等结果，CRITICAL/MAJOR 不交付」）**依赖调用方
+脚本实际 await 子代理结果**——如果调用方只是发起 delegate_task 后不检查返回值，
+P0 阻塞就是纸面承诺。
+
+**修复模板**（调用方脚本中的硬条件）：
+
+```python
+def _apply_review_gate(state, signal):
+    """4连亏下 BUY 降权 HOLD——执行层硬闸门，不依赖 LLM 自觉"""
+    health = compute_strategy_health(state)
+    losing = health.get("consecutive_losing_weeks", 0)
+    if losing >= 4 and signal["signal"] == "buy":
+        gated = dict(signal)
+        gated["signal"] = "hold"
+        gated["review_gate"] = {
+            "applied": True,
+            "consecutive_losing_weeks": losing,
+            "original_signal": "buy",
+            "original_score": signal["score"],
+        }
+        return gated, True
+    return signal, False
+```
+
+**验证**：单元测试三例（4连亏拦截 / HOLD 放行 / 健康放行）全过后才可交付。
+
+---
+
+## 🆕 审查 agent 工具权限最小化（v1.2.0 · 2026-08-02 注入）
+
+**核心原则：审查类 agent 不应拥有修改被审查对象的能力。**
+
+跑偏的审查 cron 会话可能利用全权限工具集违规写入 skill references
+（2026-08-02 机器人ETF宏观跑偏实例：会话内 skill_manage 修改了
+multi-model-review 的 references，来源标注为伪造）。
+
+### 推荐工具集
+
+| 角色 | enabled_toolsets | 理由 |
+|------|------|------|
+| 审查者（红队/反共识/宏观） | `["terminal", "file", "web"]` | 读数据/搜索/验证，不需要 skill_manage/patch/write_file |
+| 合成器 | `["terminal", "file", "web"]` | 读上游输出 + 生成报告，不需要修改 skill |
+| Refute Pass | `["terminal", "file"]` | 读上游 + 推理，不需要 web 搜索 |
+
+### 检查方法
+
+```python
+# 审计所有审查 cron 的工具集是否含越权工具
+for j in jobs:
+    if any(k in j.name for k in ["红队", "反共识", "宏观", "Refute", "合成"]):
+        tools = j.enabled_toolsets or ["(全部)"]
+        assert tools != ["(全部)"], f"{j.name} 全权限——需收敛"
+        assert not set(tools) & {"skills"}, f"{j.name} 含 skill 管理权限"
+```
+
+**红线**：skill_manage / patch / write_file 不得出现在审查类 cron 的工具集中。
