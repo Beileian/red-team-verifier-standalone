@@ -1,7 +1,7 @@
 ---
 name: output-integrity-gate
 description: 输出完整性门禁。在所有分析类输出前自动执行，拦截LLM幻觉和跨上下文数字串扰。触发条件：任何含数字/事实断言的输出，包括股票分析、技术报告、数据解读、对比分析等。不限于特定领域——通用幻觉拦截器。
-version: "1.18.0"
+version: "1.18.1"
 category: dogfood
 auto_load: true
 triggers:
@@ -296,18 +296,18 @@ LLM 幻觉有两个致命特征：① 输出时看起来自洽（数字本身没
 | [推测]标签无依据（裸推测，未标注推测来源） | **软警告** — 降级为 [推测-无依据]，提示补充推测基准 |
 | 多跳引用中链断裂（引用链某跳无法验证） | **软警告** — 标注 [源断裂, N跳]，可信度降级 |
 
-## 与 serenity-router 的关系
+## 与 red-team-verifier 的关系（2026-08-02 修正：serenity-router 从未落地）
 
-serenity-router 的第+1步（跨股票价格一致性检查）是本 gate 在股票领域的特化实例。本 gate 是通用层——数字-实体绑定、范围合理性、断言可追溯适用于任何领域。
+早期设计文档曾提到三层防御（gate → verifier → serenity-router），但 serenity-router 从未在代码/cron/config 中落地——全库零引用，是幽灵组件。实际防御为双层：gate（自检+分级）+ verifier（独立审查）。
 
-股票分析时，本 gate 与 serenity-router 的数据门禁并行执行。非股票分析时，本 gate 独立工作。
+股票分析时，本 gate 与 verifier 并行执行。非股票分析时，本 gate 独立工作。
 
 ## ⚠️ 自审计陷阱：防御系统 ≠ 运行中
 
 **设计但不触发 = 比没有更危险**（制造虚假安全感）。2026-06-29 实例：
 三层防御体系描述为"output-integrity-gate → red-team-verifier → serenity-router"，
 但检查后发现 red-team-verifier 从未被 delegate_task 实际调用——所有分析输出
-都是主进程直接交付，子代理审查从未上场。
+都是主进程直接交付，子代理审查从未上场。（注：serenity-router 为幽灵组件，2026-08-02 已移除全部引用）
 
 **自检规则**（每次股票分析后自查）：
 1. 本次输出的风险等级是什么（P0/P1/P2）？
@@ -441,7 +441,7 @@ serenity-router 的第+1步（跨股票价格一致性检查）是本 gate 在�
 
 `auto_load: true` — 任何含数字或事实断言的输出，自动加载本 gate。无需用户手动触发。
 
-## 与 serenity-router / red-team-verifier 的关系
+## 与 red-team-verifier 的关系（2026-08-02 修正）
 
 ```
 output-integrity-gate  = 自检清单（主进程输出前自查，7项，~30秒）
@@ -449,14 +449,12 @@ output-integrity-gate  = 自检清单（主进程输出前自查，7项，~30秒
                          + P0→阻塞唤子代理，P1→条件异步唤
 red-team-verifier      = 独立审查（子代理独立验证，不共享上下文，7项FT-CODE）
                          按分级触发——P0阻塞/P1异步/P2跳过
-serenity-router        = 股票分析专项（数据门禁 → 方法论闸门 → 方法论层 → rubrics自评）
 ```
 
-三者互补：
+两者互补：
 - gate 抓显性错误（数字范围/标注缺失/实体绑定/ID截断/输出整洁度），输出前快速自检 + 判定风险等级
 - verifier 抓隐性错误（推理断裂/内部矛盾/跨实体串扰），P0阻塞独立审查，P1条件异步
-- **serenity-router 第0.5步方法论闸门防"门禁过了=分析完了"的错觉**（2026-06-28三花智控教训：门禁满分但方法轮未加载）
-- 股票分析时，gate 和 verifier 都在 serenity-router 的框架内触发
+- **2026-08-02 移除：serenity-router 为幽灵引用（全库零文件/cron/config），实际为 gate+verifier 双层，无第三条链路**
 
 ## 已知盲区
 

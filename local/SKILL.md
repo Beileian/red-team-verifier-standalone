@@ -1,7 +1,7 @@
 ---
 name: red-team-verifier-local
 description: 隐序定制层 — 将 Agile-V 的代码验证代理适配为通用输出验证。幻觉猎杀清单 + FT-CODE 分类 + 分级触发 (P0阻塞/P1异步/P2跳过)，与 output-integrity-gate v1.3.0 联动。
-version: "1.2.0"
+version: "1.2.1"
 ---
 
 # Red Team Verifier — 隐序适配层
@@ -192,3 +192,15 @@ for j in jobs:
 ```
 
 **红线**：skill_manage / patch / write_file 不得出现在审查类 cron 的工具集中。
+
+## 输出审计链（v1.2.1 新增，2026-08-02 蜂群蓝红蓝 P0-2）
+
+每次完成一轮验证（P0/P1）后，**必须**调用 `scripts/verifier_audit.py` 追加一条审计记录：
+
+```bash
+python3 /root/.openclaw/workspace/scripts/verifier_audit.py --output "<被验证输出标识>" --level P0 --verdict CRITICAL|MAJOR|MINOR|CLEAN --findings "<发现摘要>"
+```
+
+- 审计记录写入 `logs/verifier/audit_YYYYMMDD.jsonl`（追加，不覆盖）
+- 目的：让「每输出 → 每验证」可追溯，验证本身也可被审计（验证器也需要被验证）
+- 无审计记录 = 本轮验证未完成，视为未交付
